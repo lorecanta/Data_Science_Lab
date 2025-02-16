@@ -170,3 +170,71 @@ def plot_metrics_distribution(df):
     # Mostra il grafico
     plt.tight_layout()  # Per evitare sovrapposizioni dei grafici
     plt.show()
+
+
+import pandas as pd
+
+def analyze_association_rules(
+    df_train, df_test, segmentation_column, segmentation_values,
+    columns_A, columns_B, export_name, min_support=0.12, min_confidence=0.6, min_lift=1.35
+):
+    all_results = []
+    
+    # Itera su tutti i segmenti
+    for segment in segmentation_values:
+        df_iter = df_train[df_train[segmentation_column] == segment]
+        
+        # Crea l'oggetto AssociationRules
+        ar = AssociationRules(df_iter, columns_A=columns_A, columns_B=columns_B, group=segment)
+        
+        # Calcola le metriche
+        results = ar.calculate_all_metrics_for_selected_sets()
+        
+        # Filtra le regole
+        filtered_results = ar.filter_by_values(results, min_support, min_confidence, min_lift)
+        
+        all_results.append(filtered_results)
+    
+    # Concatena tutti i risultati
+    final_results_db = pd.concat(all_results, ignore_index=True)
+    
+    # Prepara i dati per il test
+    lista_A = final_results_db["A"].tolist()
+    lista_B = final_results_db["B"].tolist()
+    
+    support_test_values, confidence_test_values, lift_test_values = [], [], []
+    
+    ar_test = AssociationRules(df_test, columns_A=columns_A, columns_B=columns_B, group="test")
+    
+    for item_a, item_b in zip(lista_A, lista_B):
+        support_test_values.append(ar_test.support(list(item_a + item_b)))
+        confidence_test_values.append(ar_test.confidence(list(item_a), list(item_b)))
+        lift_test_values.append(ar_test.lift(list(item_a), list(item_b)))
+    
+    final_results_db["supporto_test"] = support_test_values
+    final_results_db["confidenza_test"] = confidence_test_values
+    final_results_db["lift_test"] = lift_test_values
+    
+    # Creazione del riassunto per "Group"
+    df_summary = final_results_db.groupby("Group").agg({
+        "Support": "mean",
+        "Confidence": "mean",
+        "Lift": "mean",
+        "supporto_test": "mean",
+        "confidenza_test": "mean",
+        "lift_test": "mean"
+    }).reset_index()
+    
+    # Rinomina le colonne
+    df_summary.rename(columns={
+        "Support": "Support Medio",
+        "Confidence": "Confidence Media",
+        "Lift": "Lift Medio",
+        "supporto_test": "Support Test Medio",
+        "confidenza_test": "Confidence Test Media",
+        "lift_test": "Lift Test Medio"
+    }, inplace=True)
+    
+    # Esporta i risultati
+    final_results_db.to_csv(f"{export_name}.csv", index=False)
+    return final_results_db, df_summary
