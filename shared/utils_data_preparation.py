@@ -174,20 +174,3 @@ def calculate_scores(db_final):
     db_analysis["total_score"] = db_final[variabili_fca].sum(axis=1)
 
     return db_analysis
-
-
-def create_train_test_set(data: pd.DataFrame, test_size: float = 0.3, random_state: int = 42):
-    """
-    Funzione per creare i set di train e test da un DataFrame.
-    
-    :param data: DataFrame contenente i dati del database
-    :param test_size: Percentuale di dati da riservare per il test (default 0.2 = 20%)
-    :param random_state: Semenza per la randomizzazione della divisione dei dati (default 42)
-    
-    :return: due DataFrame (train_set, test_set)
-    """
-    
-    # Creare il train e test set utilizzando train_test_split
-    train_set, test_set = train_test_split(data, test_size=test_size, random_state=random_state)
-    
-    return train_set, test_set
