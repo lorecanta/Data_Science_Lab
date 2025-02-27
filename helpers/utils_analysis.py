@@ -238,17 +238,19 @@ def analyze_association_rules(
     lista_B = final_results_db["B"].tolist()
     
     support_test_values, confidence_test_values, lift_test_values = [], [], []
-    
-    ar_test = AssociationRules(df_test, columns_A=columns_A, columns_B=columns_B, group="test")
-    
-    for item_a, item_b in zip(lista_A, lista_B):
-        support_test_values.append(ar_test.support(list(item_a + item_b)))
-        confidence_test_values.append(ar_test.confidence(list(item_a), list(item_b)))
-        lift_test_values.append(ar_test.lift(list(item_a), list(item_b)))
-    
-    final_results_db["supporto_test"] = support_test_values
-    final_results_db["confidenza_test"] = confidence_test_values
-    final_results_db["lift_test"] = lift_test_values
+
+    for segment in segmentation_values:
+        df_iter = df_test[df_test[segmentation_column] == segment]
+        ar_test = AssociationRules(df_iter, columns_A=columns_A, columns_B=columns_B, group=f"{segment}_test")
+        
+        for item_a, item_b in zip(lista_A, lista_B):
+            support_test_values.append(ar_test.support(list(item_a + item_b)))
+            confidence_test_values.append(ar_test.confidence(list(item_a), list(item_b)))
+            lift_test_values.append(ar_test.lift(list(item_a), list(item_b)))
+        
+        final_results_db["supporto_test"] = support_test_values
+        final_results_db["confidenza_test"] = confidence_test_values
+        final_results_db["lift_test"] = lift_test_values
     
     # Creazione del riassunto per "Group"
     df_summary = final_results_db.groupby("Group").agg({
