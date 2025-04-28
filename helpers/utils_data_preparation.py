@@ -1,84 +1,116 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder
+import logging
 
-def transform_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Static variable definitions
+binary_variables = [
+    "qd1", "SM", "qd12", "qprod1c_1", "qprod1c_2", "qprod1c_3", "qprod1c_5", "qprod1c_6", "qprod1c_7",
+    "qprod1c_8", "qprod1c_10", "qprod1c_11", "qprod1c_12", "qprod1c_14", "qprod1c_99", "qf3_1", "qf3_3", "qf3_4",
+    "qf3_6", "qf3_7", "qf3_8", "qf3_99", "qf9_1", "qf9_10", "qf9_2", "qf9_3", "qf9_4", "qf9_5", "qf9_6", "qf9_7",
+    "qf9_8", "qf9_9", "qf9_99", "qprod3_1", "qprod3_2", "qprod3_3", "qprod3_4", "qprod3_5", "qprod3_6", "qprod3_7",
+    "qprod3_8", "qprod3_9", "qprod3_10", "qprod3_11", "qprod3_12", "qprod3_13", "qprod3_14", "qprod3_15", "qprod3_16",
+    "qprod3_17", "qprod3_18", "qprod3_99", "qf12_1_a", "qf12_1_b", "qf12_1_c", "qf12_2_d", "qf12_3_e", "qf12_3_f",
+    "qf12_3_g", "qf12_4_k", "qf12_4_l", "qf12_5_m", "qf12_5_o", "qf12_6_p", "qf12_6_q", "qf12_7_r", "qf12_97", "qf12_99"
+]
+continuous_variables = ["pesofitc"]
+geodemo_orig = ["AREA5", "qd10", "qd9"]
+
+# Define score variables
+knowledge_score_variables = ["qk3_score", "qk4_score", "qk5_score", "qk6_score", "qk7_1_score", "qk7_2_score", "qk7_3_score"]
+behavioral_score_variables = ["qf1_qf2_score", "qf3_score", "qf10_1_score", "qf10_4_score", "qf10_6_score", "qf10_7_score", "qprod_2pt_score", "qprod_1pt_score", "qf12_score"]
+attitude_score_variables = ["qf10_2_score", "qf10_3_score", "qf10_8_score"]
+variabili_fca = knowledge_score_variables + behavioral_score_variables + attitude_score_variables
+
+# Geodemographic variables
+geodemo = ["qd1", "AREA5", "qd5b", "generation", "qd10", "education", "qd12", "segmentation"]
+
+def handle_missing_values(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Applica la trasformazione ai dati del DataFrame per la pulizia e la codifica.
+    Handles missing values in the DataFrame by filling specific columns with predefined values.
 
-    La funzione esegue diverse operazioni sul DataFrame, tra cui la gestione dei valori mancanti,
-    la sostituzione di valori specifici con il valore di moda, e l'applicazione di una codifica one-hot
-    per le variabili categoriche. Inoltre, stampa un messaggio che indica la presenza di eventuali valori mancanti.
+    This function replaces missing values in the columns `qprod1_d` and `qprod2` with the values `99` and `-99`, respectively.
 
-    Parametri:
-    - df (pandas.DataFrame): Il DataFrame contenente i dati da trasformare. Deve includere colonne numeriche e categoriche.
+    Parameters:
+    - df (pandas.DataFrame): The input DataFrame.
 
-    Ritorna:
-    - pandas.DataFrame: Un DataFrame trasformato con le variabili one-hot codificate e senza valori mancanti.
+    Returns:
+    - pandas.DataFrame: The DataFrame with missing values handled.
     """
-    # Gestione dei valori mancanti
+    logging.info("Handling missing values...")
     df.fillna({"qprod1_d": 99, "qprod2": -99}, inplace=True)
+    return df
 
-    # Modifica le colonne 'qk4' e 'qk5' in base a determinate condizioni
+def modify_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Modifies specific columns based on predefined conditions.
+
+    This function updates the values in the columns `qk4` and `qk5`:
+    - For `qk4`, values not in `[-97, -99, 0]` are replaced with `1`.
+    - For `qk5`, values not in `[-97, -99, 102]` are replaced with `1`.
+
+    Parameters:
+    - df (pandas.DataFrame): The input DataFrame.
+
+    Returns:
+    - pandas.DataFrame: The DataFrame with modified columns.
+    """
+    logging.info("Modifying specific columns...")
     df['qk4'] = np.where(df['qk4'].isin([-97, -99, 0]), df['qk4'], 1)
     df['qk5'] = np.where(df['qk5'].isin([-97, -99, 102]), df['qk5'], 1)
+    return df
 
-    # Gestione delle colonne 'qf10_' sostituendo -97 e -99 con la moda
-    qf10_cols = [col for col in df.columns if col.startswith("qf10_")]
-    for col in qf10_cols:
+def replace_with_mode(df: pd.DataFrame, columns: list) -> pd.DataFrame:
+    """
+    Replaces specific values (-97, -99) in the given columns with the mode of each column.
+
+    This function iterates over the provided list of columns and replaces occurrences of `-97` and `-99` with the mode (most frequent value) of the respective column.
+
+    Parameters:
+    - df (pandas.DataFrame): The input DataFrame.
+    - columns (list): List of column names to process.
+
+    Returns:
+    - pandas.DataFrame: The DataFrame with replaced values.
+    """
+    logging.info(f"Replacing -97 and -99 with mode for columns: {columns}")
+    for col in columns:
         mode_value = df[col].mode()[0]
         df[col] = df[col].replace([-97, -99], mode_value)
+    return df
 
-    # Definizione delle variabili
-    binary_variables = [
-        "qd1", "SM", "qd12", "qprod1c_1", "qprod1c_2", "qprod1c_3", "qprod1c_5", "qprod1c_6", "qprod1c_7",
-        "qprod1c_8", "qprod1c_10", "qprod1c_11", "qprod1c_12", "qprod1c_14", "qprod1c_99", "qf3_1", "qf3_3", "qf3_4",
-        "qf3_6", "qf3_7", "qf3_8", "qf3_99", "qf9_1", "qf9_10", "qf9_2", "qf9_3", "qf9_4", "qf9_5", "qf9_6", "qf9_7",
-        "qf9_8", "qf9_9", "qf9_99", "qprod3_1", "qprod3_2", "qprod3_3", "qprod3_4", "qprod3_5", "qprod3_6", "qprod3_7",
-        "qprod3_8", "qprod3_9", "qprod3_10", "qprod3_11", "qprod3_12", "qprod3_13", "qprod3_14", "qprod3_15", "qprod3_16",
-        "qprod3_17", "qprod3_18", "qprod3_99", "qf12_1_a", "qf12_1_b", "qf12_1_c", "qf12_2_d", "qf12_3_e", "qf12_3_f",
-        "qf12_3_g", "qf12_4_k", "qf12_4_l", "qf12_5_m", "qf12_5_o", "qf12_6_p", "qf12_6_q", "qf12_7_r", "qf12_97", "qf12_99"
-    ]
-    integer_variables = ["qd5b", "qd7"] + qf10_cols
-    continuous_variables = ["pesofitc"]
+def encode_categorical_variables(df: pd.DataFrame, categorical_variables: list) -> pd.DataFrame:
+    """
+    Applies one-hot encoding to the categorical variables.
 
-    # Variabili geodemografiche
-    geodemo = ["AREA5", "qd10", "qd9"]
-    
-    # Variabili categoriche
-    categorical_variables = df.columns.difference(binary_variables + integer_variables + continuous_variables)
+    This function uses `OneHotEncoder` from `sklearn` to encode the specified categorical variables. The first category is dropped to avoid multicollinearity.
 
-    # Codifica one-hot per le variabili categoriche
+    Parameters:
+    - df (pandas.DataFrame): The input DataFrame.
+    - categorical_variables (list): List of categorical variable names.
+
+    Returns:
+    - pandas.DataFrame: A DataFrame with one-hot encoded variables.
+    """
+    logging.info(f"Applying one-hot encoding to categorical variables...")
     encoder = OneHotEncoder(drop='first')
     encoded_cols = encoder.fit_transform(df[categorical_variables])
     encoded_df = pd.DataFrame(encoded_cols.toarray(), columns=encoder.get_feature_names_out(categorical_variables))
+    return encoded_df
 
-    # Creazione del DataFrame finale
-    df_final = pd.concat([df[binary_variables + integer_variables + geodemo], encoded_df], axis=1).fillna(0)
-
-    # Controllo dei valori mancanti
-    if df_final.isna().any().any():
-        print("Missing values exist.")
-    else:
-        print("No missing values.")
-    
-    return df_final
-
-def calculate_scores(df: pd.DataFrame) -> pd.DataFrame:
+def calculate_knowledge_scores(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Calcola i punteggi di conoscenza, comportamento e atteggiamento e li aggiunge al DataFrame.
+    Calculates knowledge-related scores and adds them to the DataFrame.
 
-    La funzione calcola i punteggi di conoscenza, comportamento, atteggiamento, variabili temporanee per la produzione
-    e il punteggio di credito, e crea un punteggio totale per ogni riga. Questi punteggi vengono aggiunti al DataFrame 
-    come nuove colonne.
+    Parameters:
+    - df (pandas.DataFrame): The input DataFrame.
 
-    Parametri:
-    - df (pandas.DataFrame): Il DataFrame con le variabili trasformate.
-
-    Ritorna:
-    - pandas.DataFrame: Un DataFrame con i punteggi calcolati e una colonna "total_score" che rappresenta la somma di tutti i punteggi.
+    Returns:
+    - pandas.DataFrame: The DataFrame with knowledge scores added.
     """
-    # Punteggi di conoscenza
     df["qk3_score"] = (df["qk3_3"] == 1).astype(int)
     df["qk4_score"] = (df["qk4_0"] == 1).astype(int)
     df["qk5_score"] = (df["qk5_102"] == 1).astype(int)
@@ -86,60 +118,139 @@ def calculate_scores(df: pd.DataFrame) -> pd.DataFrame:
     df["qk7_1_score"] = (df["qk7_1_1"] == 1).astype(int)
     df["qk7_2_score"] = (df["qk7_2_1"] == 1).astype(int)
     df["qk7_3_score"] = (df["qk7_3_1"] == 1).astype(int)
+    return df
 
-    # Punteggi comportamentali
+def calculate_behavioral_scores(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculates behavioral-related scores and adds them to the DataFrame.
+
+    Parameters:
+    - df (pandas.DataFrame): The input DataFrame.
+
+    Returns:
+    - pandas.DataFrame: The DataFrame with behavioral scores added.
+    """
     df["qf1_qf2_score"] = (((df["qf1_1"] == 1) | (df["qf1_2"] == 1)) & (df["qf2_1"] == 1)).astype(int)
     df["qf3_score"] = df[["qf3_1", "qf3_4", "qf3_6", "qf3_7", "qf3_8"]].sum(axis=1).gt(0).astype(int)
     df["qf10_1_score"] = df["qf10_1"].isin([1, 2]).astype(int)
     df["qf10_4_score"] = df["qf10_4"].isin([1, 2]).astype(int)
     df["qf10_6_score"] = df["qf10_6"].isin([1, 2]).astype(int)
     df["qf10_7_score"] = df["qf10_7"].isin([1, 2]).astype(int)
+    return df
 
-    # Variabili temporanee per la produzione
+def calculate_production_scores(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculates temporary production-related scores and adds them to the DataFrame.
+
+    Parameters:
+    - df (pandas.DataFrame): The input DataFrame.
+
+    Returns:
+    - pandas.DataFrame: The DataFrame with production scores added.
+    """
     df["temp_qprod2"] = df[["qprod2_1.0", "qprod2_4.0"]].sum(axis=1).gt(0).astype(int)
     df["temp_qprod3"] = (
         (df[["qprod3_5", "qprod3_6", "qprod3_7", "qprod3_8"]].sum(axis=1) > 0).astype(int) * 2 +
         (df[["qprod3_2", "qprod3_3", "qprod3_4", "qprod3_9", "qprod3_10", "qprod3_11", "qprod3_12", "qprod3_13", "qprod3_18"]].sum(axis=1) > 0).astype(int)
     )
-
     df["qprod_2pt_score"] = (df["temp_qprod3"] == 2).astype(int)
     df["qprod_1pt_score"] = ((df["temp_qprod2"] == 1) | (df["temp_qprod3"] == 1)).astype(int)
+    return df
 
-    # Punteggio di credito
+def calculate_credit_scores(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculates credit-related scores and adds them to the DataFrame.
+
+    Parameters:
+    - df (pandas.DataFrame): The input DataFrame.
+
+    Returns:
+    - pandas.DataFrame: The DataFrame with credit scores added.
+    """
     credit_columns = ["qf12_3_e", "qf12_3_f", "qf12_3_g", "qf12_4_k", "qf12_4_l", "qf12_5_m",
                       "qf12_5_o", "qf12_6_p", "qf12_6_q"]
     df["qf12_score"] = (df[credit_columns].sum(axis=1) == 0).astype(int)
+    return df
 
-    # Punteggio di atteggiamento
+def calculate_attitude_scores(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculates attitude-related scores and adds them to the DataFrame.
+
+    Parameters:
+    - df (pandas.DataFrame): The input DataFrame.
+
+    Returns:
+    - pandas.DataFrame: The DataFrame with attitude scores added.
+    """
     df["qf10_2_score"] = df["qf10_2"].isin([4, 5]).astype(int)
     df["qf10_3_score"] = df["qf10_3"].isin([4, 5]).astype(int)
     df["qf10_8_score"] = df["qf10_8"].isin([4, 5]).astype(int)
+    return df
 
-    # Definizione delle variabili per FCA
-    knowledge_score_variables = ["qk3_score", "qk4_score", "qk5_score", "qk6_score", "qk7_1_score", "qk7_2_score", "qk7_3_score"]
-    behavioral_score_variables = ["qf1_qf2_score", "qf3_score", "qf10_1_score", "qf10_4_score", "qf10_6_score", "qf10_7_score", "qprod_2pt_score", "qprod_1pt_score", "qf12_score"]
-    attitude_score_variables = ["qf10_2_score", "qf10_3_score", "qf10_8_score"]
-    variabili_fca = knowledge_score_variables + behavioral_score_variables + attitude_score_variables
+def calculate_all_scores(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculates knowledge, behavior, attitude, production, and credit scores and adds them to the DataFrame.
 
-    # Variabili geodemografiche
-    geodemo = ["qd1", "AREA5", "qd5b", "generation", "qd10", "education", "qd12", "segmentation"]
+    This function combines the results of individual score calculation functions.
 
-    # Creazione del DataFrame finale per l'analisi
+    Parameters:
+    - df (pandas.DataFrame): The input DataFrame.
+
+    Returns:
+    - pandas.DataFrame: A DataFrame with all scores added.
+    """
+    logging.info("Calculating all scores...")
+
+    # Calculate individual scores
+    df = calculate_knowledge_scores(df)
+    df = calculate_behavioral_scores(df)
+    df = calculate_production_scores(df)
+    df = calculate_credit_scores(df)
+    df = calculate_attitude_scores(df)
+
+    logging.info("All scores calculated successfully.")
+    return df
+
+def create_db_analysis(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Creates the `db_analysis` DataFrame for analysis.
+
+    This function selects geodemographic variables and calculated scores, and computes the total score.
+
+    Parameters:
+    - df (pandas.DataFrame): The input DataFrame with calculated scores.
+
+    Returns:
+    - pandas.DataFrame: A DataFrame containing geodemographic variables, scores, and the total score.
+    """
+    logging.info("Creating db_analysis DataFrame...")
+
+    # Select geodemographic variables and calculated scores
     db_analysis = df[geodemo + variabili_fca].copy()
+
+    # Calculate the total score
     db_analysis["total_score"] = df[variabili_fca].sum(axis=1)
 
+    logging.info("db_analysis DataFrame created successfully.")
     return db_analysis
-
 
 def categorize_generation(age: int) -> str:
     """
-    Categorizza una persona in base alla sua fascia di età.
+    Categorizes a person based on their age group.
 
-    Parametri:
-    - age (int): L'età della persona.
+    This function assigns a generation label based on the provided age:
+    - `Silent_Generation`: Age >= 80
+    - `Boomers`: 64 <= Age <= 79
+    - `Gen_X`: 50 <= Age <= 63
+    - `Millennials`: 34 <= Age <= 49
+    - `Gen_Z`: 18 <= Age <= 33
+    - `Unknown`: Age < 18 or invalid age
 
-    Ritorna:
-    - str: La generazione corrispondente all'età fornita.
+    Parameters:
+    - age (int): The age of the person.
+
+    Returns:
+    - str: The generation corresponding to the given age.
     """
     if age >= 80:
         return "Silent_Generation"
@@ -154,16 +265,20 @@ def categorize_generation(age: int) -> str:
     else:
         return "Unknown"
 
-
 def categorize_education(edu: int) -> str:
     """
-    Categorizza una persona in base al suo livello di istruzione.
+    Categorizes a person based on their education level.
 
-    Parametri:
-    - edu (int): Il livello di istruzione (1, 2, 3, etc.).
+    This function assigns an education category based on the provided level:
+    - `University`: Level 1
+    - `Diploma`: Level 3
+    - `No_diploma`: Any other level
 
-    Ritorna:
-    - str: La categoria di istruzione ("University", "Diploma", "No_diploma").
+    Parameters:
+    - edu (int): The education level (1, 2, 3, etc.).
+
+    Returns:
+    - str: The education category ("University", "Diploma", "No_diploma").
     """
     if edu == 1:
         return "University"
@@ -171,8 +286,23 @@ def categorize_education(edu: int) -> str:
         return "Diploma"
     else:
         return "No_diploma"
-    
 
-knowledge_score_variables = ["qk3_score", "qk4_score", "qk5_score", "qk6_score", "qk7_1_score", "qk7_2_score", "qk7_3_score"]
-behavioral_score_variables = ["qf1_qf2_score", "qf3_score", "qf10_1_score", "qf10_4_score", "qf10_6_score", "qf10_7_score", "qprod_2pt_score", "qprod_1pt_score", "qf12_score"]
-attitude_score_variables = ["qf10_2_score", "qf10_3_score", "qf10_8_score"]
+def create_combined_variable(df: pd.DataFrame, col1: str, col2: str, new_col_name: str) -> pd.DataFrame:
+    """
+    Creates a new column by combining two existing columns with an underscore.
+
+    Parameters:
+    - df (pandas.DataFrame): The input DataFrame.
+    - col1 (str): The name of the first column to combine.
+    - col2 (str): The name of the second column to combine.
+    - new_col_name (str): The name of the new column to create.
+
+    Returns:
+    - pandas.DataFrame: The DataFrame with the new combined column added.
+    """
+    logging.info(f"Creating combined variable '{new_col_name}' from '{col1}' and '{col2}'...")
+    df[new_col_name] = df[col1].astype(str) + "_" + df[col2].astype(str)
+    logging.info(f"Combined variable '{new_col_name}' created successfully.")
+    return df
+
+
