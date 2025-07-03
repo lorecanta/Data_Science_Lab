@@ -30,6 +30,7 @@ def process_financial_literacy_data(file_path: str) -> pd.DataFrame:
     logging.info(f"Loading data from {file_path}...")
     df = pd.read_csv(file_path)
     logging.info("Data loaded successfully.")
+    
 
     # 2. Apply individual transformation steps
     logging.info("Applying data transformation steps...")

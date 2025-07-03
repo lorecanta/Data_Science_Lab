@@ -7,4 +7,4 @@ attitude_score_variables = ["qf10_2_score", "qf10_3_score", "qf10_8_score"]
 min_weight = 200
 n_folds = 10
 
-data_path = "data/Financia_literacy_2017.csv"
+data_path = "data/Financia_literacy_2018.csv"
