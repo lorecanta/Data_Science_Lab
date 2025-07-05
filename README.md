@@ -1,5 +1,5 @@
 
-# Data Science Lab Project: Financial Literacy Analysis (2017-2020)
+# Data Science Lab Project: Financial Literacy Analysis
 
 ## Project Overview
 This project focuses on analyzing financial literacy data collected by the Bank of Italy in 2018. The dataset contains detailed information on the knowledge, attitudes, and financial behaviors of Italian citizens.
@@ -22,7 +22,10 @@ pip install -r requirements.txt
 │   ├── __init__.py
 │   ├── utils_analysis.py             # Analysis/statistical methods
 │   ├── utils_data_exploration.py     # Data exploration functions
-│   └── utils_data_preprocessing.py   # Data cleaning and transformation functions
+│   ├── utils_data_preprocessing.py   # Data cleaning and transformation functions
+│   ├── models.py                     # FCA class definition
+│   └── utils_plot.py                 # Plot functions
+
 │
 ├── Letteratura/                      # Research literature and reference documents
 │   ├── Financia literacy - Ricerche.pdf
@@ -31,10 +34,6 @@ pip install -r requirements.txt
 │
 ├── output/                           # Output from analysis and visualizations
 │   └── output_plots/                 # Automatically generated plots
-│
-├── pipeline/                         # Data preparation and transformation pipeline
-│   ├── __init__.py
-│   └── data_preparation.py           # Main data preprocessing script
 │
 ├── column_types.yaml                 # YAML file specifying data types per column
 ├── config.py                         # Configuration file for paths and constants
